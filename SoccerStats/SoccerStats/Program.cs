@@ -24,9 +24,25 @@ namespace SoccerStats
 			foreach (var player in topTenPlayers)
 			{
 				List<NewsResult> newsResults = GetNewsForPlayer(string.Format("{0} {1}", player.FirstName, player.LastName));
+				SentimentResponse sentimentResponse = GetSentimentResponse(newsResults);
+				foreach (var sentiment in sentimentResponse.Sentiments)
+				{
+					foreach (var newsResult in newsResults)
+					{
+						if (newsResult.Headline == sentiment.Id)
+						{
+							double Score;
+							if (double.TryParse(sentiment.Score, out Score))
+							{
+								newsResult.SentimentScore = Score;
+							}
+							break;
+						}
+					}
+				}
 				foreach (var result in newsResults)
 				{
-					Console.WriteLine(string.Format("Date {0:f}, Headline: {1}, Summary: {2} \r\n", result.DatePublished, result.Headline, result.Summary));
+					Console.WriteLine(string.Format("Sentiment Score: {0:P}, Date: {1:f}, Headline: {2}, Summary: {3} \r\n",result.SentimentScore, result.DatePublished, result.Headline, result.Summary));
 					Console.ReadKey();
 				}
 			}
@@ -158,6 +174,28 @@ namespace SoccerStats
 				results = serializer.Deserialize<NewsSearch>(jsonReader).NewsResults;
 			}
 			return results;
+		}
+
+		public static SentimentResponse GetSentimentResponse(List<NewsResult> newsResults)
+		{
+			var sentimentResponse = new SentimentResponse();
+			var sentimentRequest = new SentimentRequest();
+			sentimentRequest.Documents = new List<Document>();
+			foreach (var result in newsResults)
+			{
+				sentimentRequest.Documents.Add(new Document { Id = result.Headline, Text = result.Summary });
+			}
+
+			var webClient = new WebClient();
+			webClient.Headers.Add("Ocp-Apim-Subscription-Key", "4f7649e381c246fe8d722836d82606cf ");
+			webClient.Headers.Add(HttpRequestHeader.Accept, "application/json");
+			webClient.Headers.Add(HttpRequestHeader.ContentType, "application/json");
+			string requestJson = JsonConvert.SerializeObject(sentimentRequest);
+			byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
+			byte[] response = webClient.UploadData("https://westus.api.cognitive.microsoft.com/text/analytics/v2.0/sentiment", requestBytes);
+			string sentiments = Encoding.UTF8.GetString(response);
+			sentimentResponse = JsonConvert.DeserializeObject<SentimentResponse>(sentiments);
+			return sentimentResponse;
 		}
 	}
 }
