@@ -25,7 +25,7 @@ namespace SoccerStats
 		public double PointsPerGame { get; set; }
 
 		[JsonProperty(PropertyName = "second_name")]
-		public string SecondName { get; set; }
+		public string LastName { get; set; }
 
 		[JsonProperty(PropertyName = "team_name")]
 		public string TeamName { get; set; }

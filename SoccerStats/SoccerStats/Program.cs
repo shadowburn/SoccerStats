@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using Newtonsoft.Json;
+using System.Net;
 
 namespace SoccerStats
 {
@@ -22,11 +23,17 @@ namespace SoccerStats
 
 			foreach (var player in topTenPlayers)
 			{
-				Console.WriteLine("Name: " + player.FirstName + " Points per game: " + player.PointsPerGame);
+				List<NewsResult> newsResults = GetNewsForPlayer(string.Format("{0} {1}", player.FirstName, player.LastName));
+				foreach (var result in newsResults)
+				{
+					Console.WriteLine(string.Format("Date {0:f}, Headline: {1}, Summary: {2} \r\n", result.DatePublished, result.Headline, result.Summary));
+					Console.ReadKey();
+				}
 			}
 
 			fileName = Path.Combine(directory.FullName, "topten.json");
 			SerializePlayersToFile(topTenPlayers, fileName);
+			
 		}
 
 		public static string ReadFile(string fileName)
@@ -124,6 +131,33 @@ namespace SoccerStats
 				serializer.Serialize(jsonWriter, players);
 			}
 			
+		}
+
+		public static string GetGoogleHomePage()
+		{
+			var webClient = new WebClient();
+			byte[] googleHome = webClient.DownloadData("https://www.google.com");
+			using (var stream = new MemoryStream(googleHome))
+			using (var reader = new StreamReader(stream))
+			{
+				return reader.ReadToEnd();
+			}
+		}
+
+		public static List<NewsResult> GetNewsForPlayer(string playerName)
+		{
+			var results = new List<NewsResult>();
+			var webClient = new WebClient();
+			webClient.Headers.Add("Ocp-Apim-Subscription-Key", "62987c2cb7e348dc954cead44ca4a467");
+			byte[] searchResults = webClient.DownloadData(string.Format("https://api.cognitive.microsoft.com/bing/v5.0/news/search?q={0}&mkt=en-us", playerName));
+			var serializer = new JsonSerializer();
+			using (var stream = new MemoryStream(searchResults))
+			using (var reader = new StreamReader(stream))
+			using (var jsonReader = new JsonTextReader(reader))
+			{
+				results = serializer.Deserialize<NewsSearch>(jsonReader).NewsResults;
+			}
+			return results;
 		}
 	}
 }
